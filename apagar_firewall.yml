@@ -1,0 +1,9 @@
+---
+- name: Apagar firewall de prueba
+  hosts: all
+  become: yes
+  tasks:
+    - name: Detener servicio
+      ansible.builtin.service:
+        name: firewalld
+        state: stopped
