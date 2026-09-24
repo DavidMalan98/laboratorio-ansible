@@ -1,0 +1,38 @@
+python3 --versión
+sudo dnf install -y python3-pip
+
+pip3 install ansible
+ansible --versión
+
+curl -sfL https://get.k3s.io | sh -
+
+mkdir ~/.kube
+sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
+sudo chown $USER ~/.kube/config
+
+kubectl get pods -A
+
+kubectl create namespace awx
+kubectl config set-context --current --namespace=awx
+
+kubectl apply -k "github.com/ansible/awx-operator/config/default?ref=24.6.1"
+
+apiVersion: awx.ansible.com/v1beta1
+kind: AWX
+metadata:
+  name: awx
+spec:
+  service_type: nodeport
+
+dnf install -y git
+
+kubectl apply -k "github.com/ansible/awx-operator/config/default?ref=24.6.1"
+
+kubectl apply -f awx-demo.yml
+
+kubectl get pods -w
+
+kubectl get secret awx-admin-password -o jsonpath="{.data.password}" | base64 --decode ; echo
+
+kubectl get svc awx-service
+
