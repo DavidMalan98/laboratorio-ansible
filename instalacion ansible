@@ -36,3 +36,4 @@ kubectl get secret awx-admin-password -o jsonpath="{.data.password}" | base64 --
 
 kubectl get svc awx-service
 
+VuCK0XU74BwcfasAIFVNi6OH0OIGzsZc
