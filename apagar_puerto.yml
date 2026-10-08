@@ -1,0 +1,17 @@
+---
+- name: Apagar un puerto en switch Cisco C3650
+  hosts: switches
+  gather_facts: false
+  connection: network_cli
+
+  vars:
+    # Cambia esto por la interfaz que deseas apagar
+    puerto: "GigabitEthernet1/0/23"
+
+  tasks:
+    - name: Deshabilitar el puerto {{ puerto }} (Shutdown)
+      cisco.ios.ios_interfaces:
+        config:
+          - name: "{{ puerto }}"
+            enabled: false
+        state: merged
