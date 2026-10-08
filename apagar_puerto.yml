@@ -2,7 +2,7 @@
 - name: Apagar un puerto en switch Cisco C3650
   hosts: all
   gather_facts: false
-  connection: network_cli
+  connection: local
 
   vars:
     # Cambia esto por la interfaz que deseas apagar
