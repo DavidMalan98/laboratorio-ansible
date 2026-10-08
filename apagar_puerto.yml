@@ -12,7 +12,7 @@
   tasks:
     - name: Inyectar comandos directamente por SSH nativo
       ansible.builtin.shell: |
-        sshpass -e ssh {{ argumentos_ssh }} {{ ansible_user }}@{{ inventory_hostname }} << 'EOF'
+        sshpass -e ssh -tt {{ argumentos_ssh }} {{ ansible_user }}@{{ inventory_hostname }} << 'EOF'
         terminal length 0
         configure terminal
         interface {{ puerto }}
@@ -22,5 +22,4 @@
         exit
         EOF
       environment:
-        # AWX inyecta automáticamente la contraseña de tu credencial en esta variable
         SSHPASS: "{{ ansible_password }}"
