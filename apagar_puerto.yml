@@ -7,6 +7,7 @@
   vars:
     # Cambia esto por la interfaz que deseas apagar
     puerto: "GigabitEthernet1/0/23"
+    ansible_ssh_common_args: '-o KexAlgorithms=+diffie-hellman-group14-sha1,diffie-hellman-group1-sha1 -o HostKeyAlgorithms=+ssh-rsa -o Ciphers=+aes256-cbc,aes128-cbc'
 
   tasks:
     - name: Deshabilitar el puerto {{ puerto }} (Shutdown)
