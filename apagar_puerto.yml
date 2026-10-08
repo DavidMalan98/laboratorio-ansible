@@ -1,6 +1,6 @@
 ---
 - name: Apagar un puerto en switch Cisco C3650
-  hosts: switches
+  hosts: all
   gather_facts: false
   connection: network_cli
 
