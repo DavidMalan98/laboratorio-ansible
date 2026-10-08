@@ -1,28 +1,31 @@
 ---
-- name: Apagar un puerto en switch Cisco C3650 (Modo Definitivo)
+- name: Apagar puerto Cisco C3650
   hosts: all
   gather_facts: false
   connection: local
 
   vars:
     puerto: "GigabitEthernet1/0/23"
-    # Reducimos los parámetros para no sobrecargar el cliente SSH
-    argumentos_ssh: '-o KexAlgorithms=+diffie-hellman-group14-sha1 -o HostKeyAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no'
 
   tasks:
-    - name: Inyectar comandos por SSH evadiendo bloqueo de OpenSSL
-      ansible.builtin.shell: |
-        sshpass -e ssh -tt {{ argumentos_ssh }} {{ ansible_user }}@{{ inventory_hostname }} << 'EOF'
-        terminal length 0
-        configure terminal
-        interface {{ puerto }}
-        shutdown
-        end
-        write memory
-        exit
-        EOF
+    - name: Ejecutar comandos simulando terminal humana
+      ansible.builtin.expect:
+        # Forzamos la conexión SSH con los algoritmos legacy
+        command: ssh -o KexAlgorithms=+diffie-hellman-group14-sha1 -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedKeyTypes=+ssh-rsa -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }}
+        timeout: 30
+        responses:
+          # Si pide contraseña, inyecta la de AWX
+          '(?i)password': "{{ ansible_password }}"
+          # Cada vez que el switch muestre su prompt (> o #), manda la siguiente línea
+          '[>#]': 
+            - "terminal length 0"
+            - "configure terminal"
+            - "interface {{ puerto }}"
+            - "shutdown"
+            - "end"
+            - "write memory"
+            - "exit"
       environment:
-        SSHPASS: "{{ ansible_password }}"
-        # Estas dos líneas desactivan la política restrictiva de OpenSSL en Linux modernos
+        # Bypassea el bloqueo de OpenSSL 3 en el contenedor de AWX
         OPENSSL_SYSTEM_CIPHERS_OVERRIDE: "0"
         OPENSSL_CONF: "/dev/null"
