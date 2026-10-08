@@ -1,13 +1,35 @@
 ---
+# PLAY 1: Preparar el entorno de AWX
+- name: Forzar compatibilidad con algoritmos obsoletos en AWX
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Crear directorio oculto .ssh en el contenedor
+      ansible.builtin.file:
+        path: ~/.ssh
+        state: directory
+        mode: '0700'
+
+    - name: Configurar reglas globales para Paramiko
+      ansible.builtin.copy:
+        dest: ~/.ssh/config
+        content: |
+          Host *
+            KexAlgorithms +diffie-hellman-group14-sha1,diffie-hellman-group-exchange-sha1
+            HostKeyAlgorithms +ssh-rsa
+            PubkeyAcceptedKeyTypes +ssh-rsa
+            MACs +hmac-sha1,hmac-sha1-96
+
+# PLAY 2: Conectar y configurar el Switch
 - name: Apagar un puerto en switch Cisco C3650
   hosts: all
   gather_facts: false
   connection: network_cli
 
   vars:
-    # Cambia esto por la interfaz que deseas apagar
+    ansible_network_os: cisco.ios.ios
     puerto: "GigabitEthernet1/0/23"
-    ansible_ssh_common_args: '-o KexAlgorithms=+diffie-hellman-group14-sha1,diffie-hellman-group1-sha1 -o HostKeyAlgorithms=+ssh-rsa -o Ciphers=+aes256-cbc,aes128-cbc'
 
   tasks:
     - name: Deshabilitar el puerto {{ puerto }} (Shutdown)
