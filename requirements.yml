@@ -1,0 +1,5 @@
+---
+collections:
+  - name: cisco.ios
+  - name: fortinet.fortios
+  - name: ibm.spectrum_virtualize 
