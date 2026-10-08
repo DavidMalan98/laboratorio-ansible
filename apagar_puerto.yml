@@ -1,20 +1,26 @@
 ---
-- name: Apagar un puerto en switch Cisco C3650 (Modo Directo)
+- name: Apagar un puerto en switch Cisco C3650 (Modo Shell Script)
   hosts: all
   gather_facts: false
-  # Cambiamos a ssh puro para forzar el cliente nativo
-  connection: ssh
+  # Volvemos a local para ejecutar el comando desde el contenedor de AWX
+  connection: local
 
   vars:
     puerto: "GigabitEthernet1/0/23"
-    # Incluimos StrictHostKeyChecking=no para evitar que falle pidiendo confirmar la llave
-    ansible_ssh_common_args: '-o KexAlgorithms=+diffie-hellman-group14-sha1,diffie-hellman-group-exchange-sha1 -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedKeyTypes=+ssh-rsa -o StrictHostKeyChecking=no'
+    argumentos_ssh: '-o KexAlgorithms=+diffie-hellman-group14-sha1,diffie-hellman-group-exchange-sha1 -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedKeyTypes=+ssh-rsa -o StrictHostKeyChecking=no'
 
   tasks:
-    - name: Deshabilitar el puerto {{ puerto }} por CLI
-      ansible.builtin.raw: |
+    - name: Inyectar comandos directamente por SSH nativo
+      ansible.builtin.shell: |
+        sshpass -e ssh {{ argumentos_ssh }} {{ ansible_user }}@{{ inventory_hostname }} << 'EOF'
+        terminal length 0
         configure terminal
         interface {{ puerto }}
         shutdown
         end
         write memory
+        exit
+        EOF
+      environment:
+        # AWX inyecta automáticamente la contraseña de tu credencial en esta variable
+        SSHPASS: "{{ ansible_password }}"
