@@ -1,16 +1,16 @@
 ---
-- name: Apagar un puerto en switch Cisco C3650 (Modo Shell Script)
+- name: Apagar un puerto en switch Cisco C3650 (Modo Definitivo)
   hosts: all
   gather_facts: false
-  # Volvemos a local para ejecutar el comando desde el contenedor de AWX
   connection: local
 
   vars:
     puerto: "GigabitEthernet1/0/23"
-    argumentos_ssh: '-o KexAlgorithms=+diffie-hellman-group14-sha1,diffie-hellman-group-exchange-sha1 -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedKeyTypes=+ssh-rsa -o StrictHostKeyChecking=no'
+    # Reducimos los parámetros para no sobrecargar el cliente SSH
+    argumentos_ssh: '-o KexAlgorithms=+diffie-hellman-group14-sha1 -o HostKeyAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no'
 
   tasks:
-    - name: Inyectar comandos directamente por SSH nativo
+    - name: Inyectar comandos por SSH evadiendo bloqueo de OpenSSL
       ansible.builtin.shell: |
         sshpass -e ssh -tt {{ argumentos_ssh }} {{ ansible_user }}@{{ inventory_hostname }} << 'EOF'
         terminal length 0
@@ -23,3 +23,6 @@
         EOF
       environment:
         SSHPASS: "{{ ansible_password }}"
+        # Estas dos líneas desactivan la política restrictiva de OpenSSL en Linux modernos
+        OPENSSL_SYSTEM_CIPHERS_OVERRIDE: "0"
+        OPENSSL_CONF: "/dev/null"
