@@ -1,5 +1,5 @@
 ---
-- name: Apagar puerto Cisco C3650 usando RHEL como puente
+- name: Apagar puerto Cisco C3650 (Modo Comando Remoto)
   hosts: 10.1.4.124
   gather_facts: false
 
@@ -7,18 +7,22 @@
     puerto: "GigabitEthernet1/0/23"
     ip_switch: "192.168.1.20"
     usuario_switch: "admin"
-    # Escribe aquí la contraseña para entrar al switch
     pass_switch: "Cu4tr0n3t*"
 
   tasks:
-    - name: Entrar al switch desde RHEL y apagar el puerto
+    - name: Instalar sshpass en RHEL (Requerido para pasar la contraseña)
+      ansible.builtin.package:
+        name: sshpass
+        state: present
+      # Usa privilegios de administrador en RHEL para instalar el paquete
+      become: yes
+
+    - name: Enviar bloque de comandos directos (Sin terminal interactiva)
       ansible.builtin.shell: |
-        sshpass -p '{{ pass_switch }}' ssh -tt -o KexAlgorithms=+diffie-hellman-group14-sha1 -o HostKeyAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no {{ usuario_switch }}@{{ ip_switch }} << 'EOF'
-        terminal length 0
+        sshpass -p '{{ pass_switch }}' ssh -T -o KexAlgorithms=+diffie-hellman-group14-sha1 -o HostKeyAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no {{ usuario_switch }}@{{ ip_switch }} << 'EOF'
         configure terminal
         interface {{ puerto }}
         shutdown
         end
         write memory
-        exit
         EOF
