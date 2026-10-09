@@ -8,15 +8,27 @@
     puerto: "GigabitEthernet1/0/23"
 
   tasks:
-    - name: Ejecutar comandos simulando terminal humana
+    - name: 1. Crear config de OpenSSL para revivir SHA-1
+      ansible.builtin.copy:
+        dest: /tmp/legacy_openssl.cnf
+        content: |
+          openssl_conf = openssl_init
+          [openssl_init]
+          providers = provider_sect
+          [provider_sect]
+          default = default_sect
+          legacy = legacy_sect
+          [default_sect]
+          activate = 1
+          [legacy_sect]
+          activate = 1
+
+    - name: 2. Conectar y apagar el puerto
       ansible.builtin.expect:
-        # Forzamos la conexión SSH con los algoritmos legacy
         command: ssh -o KexAlgorithms=+diffie-hellman-group14-sha1 -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedKeyTypes=+ssh-rsa -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }}
         timeout: 30
         responses:
-          # Si pide contraseña, inyecta la de AWX
           '(?i)password': "{{ ansible_password }}"
-          # Cada vez que el switch muestre su prompt (> o #), manda la siguiente línea
           '[>#]': 
             - "terminal length 0"
             - "configure terminal"
@@ -26,6 +38,5 @@
             - "write memory"
             - "exit"
       environment:
-        # Bypassea el bloqueo de OpenSSL 3 en el contenedor de AWX
-        OPENSSL_SYSTEM_CIPHERS_OVERRIDE: "0"
-        OPENSSL_CONF: "/dev/null"
+        # Ahora SÍ apuntamos a un archivo real que carga el módulo legacy
+        OPENSSL_CONF: "/tmp/legacy_openssl.cnf"
