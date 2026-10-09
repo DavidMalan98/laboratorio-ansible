@@ -1,34 +1,24 @@
 ---
-- name: Apagar puerto Cisco C3650
-  hosts: all
+- name: Apagar puerto Cisco C3650 usando RHEL como puente
+  # Apuntamos directamente a la IP de tu servidor RHEL
+  hosts: 10.1.4.124
   gather_facts: false
-  connection: local
 
   vars:
     puerto: "GigabitEthernet1/0/23"
+    ip_switch: "192.168.1.20"
+    usuario_switch: "admin"
+    # Cambia esto por la contraseña real de tu switch
+    pass_switch: "Cu4tr0n3t*"
 
   tasks:
-    - name: 1. Crear config de OpenSSL para revivir SHA-1
-      ansible.builtin.copy:
-        dest: /tmp/legacy_openssl.cnf
-        content: |
-          openssl_conf = openssl_init
-          [openssl_init]
-          providers = provider_sect
-          [provider_sect]
-          default = default_sect
-          legacy = legacy_sect
-          [default_sect]
-          activate = 1
-          [legacy_sect]
-          activate = 1
-
-    - name: 2. Conectar y apagar el puerto
+    - name: Entrar al switch desde RHEL y apagar el puerto
       ansible.builtin.expect:
-        command: ssh -o KexAlgorithms=+diffie-hellman-group14-sha1 -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedKeyTypes=+ssh-rsa -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }}
+        # Comando SSH nativo ejecutado desde el RHEL
+        command: "ssh -o KexAlgorithms=+diffie-hellman-group14-sha1 -o HostKeyAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no {{ usuario_switch }}@{{ ip_switch }}"
         timeout: 30
         responses:
-          '(?i)password': "{{ ansible_password }}"
+          '(?i)password': "{{ pass_switch }}"
           '[>#]': 
             - "terminal length 0"
             - "configure terminal"
@@ -37,6 +27,3 @@
             - "end"
             - "write memory"
             - "exit"
-      environment:
-        # Ahora SÍ apuntamos a un archivo real que carga el módulo legacy
-        OPENSSL_CONF: "/tmp/legacy_openssl.cnf"
