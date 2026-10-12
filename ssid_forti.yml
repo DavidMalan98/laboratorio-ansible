@@ -39,6 +39,6 @@
         status_code: 200
       register: ssid_response
 
-    - name: Mostrar los SSIDs resultantes
+    - name: Mostrar solo los nombres de los SSIDs
       ansible.builtin.debug:
-        var: ssid_response.json
+        msg: "{{ ssid_response.json.result | map(attribute='ssid') | list }}"
