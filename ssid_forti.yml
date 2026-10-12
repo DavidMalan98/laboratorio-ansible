@@ -1,0 +1,58 @@
+---
+- name: Consultar redes y obtener SSIDs dinámicamente en FortiEdge Cloud
+  hosts: localhost
+  gather_facts: false
+  vars:
+    base_url: "https://fortiedge.forticloud.com"
+    # Credenciales de tu cuenta
+    api_id: "40A9FF19-3956-45C6-BD1F-F823875E2BE8"
+    api_password: "f002f97de90cdddb87c74aef42ba1885!1Aa"
+    client_id: "fortiedgecloud"
+
+  tasks:
+    # 1. Traer la lista de todas las redes existentes en la cuenta
+    - name: Consultar la lista de redes (nwoid)
+      ansible.builtin.uri:
+        url: "{{ base_url }}/api/v1/networks/"
+        method: GET
+        url_username: "{{ api_id }}"
+        url_password: "{{ api_password }}"
+        force_basic_auth: true
+        headers:
+          Accept: "application/json"
+          Client-Id: "{{ client_id }}"
+        return_content: true
+        status_code: 200
+      register: networks_response
+
+    # 2. Mostrar las redes al usuario para que pueda ver los IDs
+    - name: Mostrar las redes encontradas
+      ansible.builtin.debug:
+        var: networks_response.json
+
+    # 3. Pausar y solicitar al usuario que ingrese el nwoid
+    - name: Solicitar el ID de la red
+      ansible.builtin.pause:
+        prompt: "Revisa la lista de redes arriba. Escribe el ID de la red (nwoid) de la que quieres obtener los SSIDs y presiona Enter"
+      register: input_nwoid
+
+    # 4. Consultar los SSIDs usando el nwoid ingresado
+    - name: Consultar la lista de SSIDs configurados en la red seleccionada
+      ansible.builtin.uri:
+        # Aquí se inyecta dinámicamente el nwoid ingresado en el paso anterior
+        url: "{{ base_url }}/api/v1/networks/{{ input_nwoid.user_input }}/fap/config/ssids/"
+        method: GET
+        url_username: "{{ api_id }}"
+        url_password: "{{ api_password }}"
+        force_basic_auth: true
+        headers:
+          Accept: "application/json"
+          Client-Id: "{{ client_id }}"
+        return_content: true
+        status_code: 200
+      register: ssid_response
+
+    # 5. Mostrar los SSIDs resultantes
+    - name: Mostrar los SSIDs obtenidos de la red {{ input_nwoid.user_input }}
+      ansible.builtin.debug:
+        var: ssid_response.json
