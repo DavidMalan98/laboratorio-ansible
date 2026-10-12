@@ -12,7 +12,7 @@
   tasks:
     - name: Consultar la lista de SSIDs configurados en la red seleccionada
       ansible.builtin.uri:
-        url: "{{ base_url }}/api/v1/networks/{{ target_nwoid }}/fap/config/ssids/"
+        url: "{{ base_url }}/api/v1/networks/34470/fap/config/ssids/"
         method: GET
         url_username: "{{ api_id }}"
         url_password: "{{ api_password }}"
