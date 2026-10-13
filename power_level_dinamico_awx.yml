@@ -1,0 +1,54 @@
+---
+- name: Actualizar Power Level en perfil de AP (FortiEdge Cloud)
+  hosts: localhost
+  gather_facts: false
+
+  vars:
+    # Estos son los valores por defecto. La encuesta de AWX los reemplazará.
+    power_radio1: "50"
+    power_radio2: "50"
+    
+    base_url: "https://fortiedge.forticloud.com"
+    auth_url: "https://customerapiauth.fortinet.com/api/v1/oauth/token/"
+    api_id: "40A9FF19-3956-45C6-BD1F-F823875E2BE8"
+    api_password: "f002f97de90cdddb87c74aef42ba1885!1Aa"
+    client_id: "fortiedgecloud"
+    nwoid: "33569"
+    oid: 24318
+
+  tasks:
+    - name: Paso 1 - Obtener Token de Acceso
+      ansible.builtin.uri:
+        url: "{{ auth_url }}"
+        method: POST
+        body_format: json
+        body:
+          username: "{{ api_id }}"
+          password: "{{ api_password }}"
+          client_id: "{{ client_id }}"
+          grant_type: "password"
+        return_content: true
+      register: login_response
+
+    - name: Paso 2 - Actualizar el Power Level (PUT)
+      ansible.builtin.uri:
+        url: "{{ base_url }}/api/v1/networks/{{ nwoid }}/fap/config/platform_profiles/{{ oid }}"
+        method: PUT
+        headers:
+          Accept: "application/json"
+          Client-Id: "{{ client_id }}"
+          Authorization: "Bearer {{ login_response.json.access_token }}"
+        body_format: json
+        body:
+          apradios:
+            - radioId: 1
+              powerLevel: "{{ power_radio1 | int }}"
+            - radioId: 2
+              powerLevel: "{{ power_radio2 | int }}"
+        return_content: true
+        status_code: [200, 204]
+      register: update_response
+
+    - name: Mostrar resultado
+      ansible.builtin.debug:
+        var: update_response.json | default('Actualización exitosa')
