@@ -1,0 +1,35 @@
+---
+- name: Gestionar puerto Cisco C3650 (Modo Comando Remoto)
+  hosts: 10.1.4.124
+  gather_facts: false
+
+  vars:
+    # Estos son los valores por defecto que la encuesta de AWX va a sobrescribir
+    puerto: "GigabitEthernet1/0/23"
+    accion: "apagar" # Las opciones serán "apagar" o "encender"
+    
+    # Credenciales y conexión
+    ip_switch: "192.168.1.20"
+    usuario_switch: "admin"
+    pass_switch: "Cu4tr0n3t*"
+
+  tasks:
+    - name: Instalar sshpass en RHEL (Requerido para pasar la contraseña)
+      ansible.builtin.package:
+        name: sshpass
+        state: present
+      become: yes
+
+    - name: Enviar bloque de comandos (Acción={{ accion }}, Puerto={{ puerto }})
+      ansible.builtin.shell: |
+        sshpass -p '{{ pass_switch }}' ssh -T -o KexAlgorithms=+diffie-hellman-group14-sha1 -o HostKeyAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no {{ usuario_switch }}@{{ ip_switch }} << 'EOF'
+        configure terminal
+        interface {{ puerto }}
+        {% if accion == 'apagar' %}
+        shutdown
+        {% else %}
+        no shutdown
+        {% endif %}
+        end
+        write memory
+        EOF
