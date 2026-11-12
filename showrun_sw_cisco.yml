@@ -1,15 +1,22 @@
 ---
-- name: Obtener running-config de Cisco C3650
-  hosts: 192.168.1.20
+- name: Obtener config de Cisco (Modo EXEC Seguro)
+  hosts: 10.1.4.124
   gather_facts: false
 
-  tasks:
-    - name: Ejecutar show running-config
-      cisco.ios.ios_command:
-        commands:
-          - show running-config
-      register: resultado_show_run
+  vars:
+    ip_switch: "192.168.1.20"
+    usuario_switch: "admin"
+    pass_switch: "Cu4tr0n3t*"
 
-    - name: Mostrar la configuracion
+  tasks:
+    - name: Extraer configuracion usando canal EXEC (Cierre automatico garantizado)
+      ansible.builtin.shell: |
+        COMANDOS="terminal length 0
+        show running-config"
+        
+        sshpass -p '{{ pass_switch }}' ssh -T -o KexAlgorithms=+diffie-hellman-group14-sha1 -o HostKeyAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no {{ usuario_switch }}@{{ ip_switch }} "$COMANDOS"
+      register: resultado_show_run
+      
+    - name: Mostrar el resultado en consola
       ansible.builtin.debug:
-        msg: "{{ resultado_show_run.stdout_lines[0] }}"
+        var: resultado_show_run.stdout_lines
