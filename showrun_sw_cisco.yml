@@ -9,17 +9,17 @@
     pass_switch: "Cu4tr0n3t*"
 
   tasks:
-    - name: Inyectar comandos con pausas (sleep) para no desbordar el buffer del switch
+    - name: Ejecutar show run y forzar desconexión mediante timeout
       ansible.builtin.shell: |
-        (
-          echo "terminal length 0"
-          sleep 1
-          echo "show running-config"
-          sleep 3
-          echo "exit"
-          sleep 1
-        ) | sshpass -p '{{ pass_switch }}' ssh -T -o KexAlgorithms=+diffie-hellman-group14-sha1 -o HostKeyAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no {{ usuario_switch }}@{{ ip_switch }}
+        timeout 60 sshpass -p '{{ pass_switch }}' ssh -T -o KexAlgorithms=+diffie-hellman-group14-sha1 -o HostKeyAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no {{ usuario_switch }}@{{ ip_switch }} << 'EOF'
+        terminal length 0
+        show running-config
+        exit
+        EOF
       register: resultado_show_run
+      # El código 124 significa que el timeout cortó la sesión exitosamente
+      failed_when: resultado_show_run.rc not in [0, 124]
+      changed_when: false
 
     - name: Mostrar el resultado en pantalla
       ansible.builtin.debug:
