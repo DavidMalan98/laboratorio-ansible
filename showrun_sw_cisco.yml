@@ -1,4 +1,5 @@
----
+
+    ---
 - name: Obtener running-config de Cisco C3650 (Modo Comando Remoto)
   hosts: 10.1.4.124
   gather_facts: false
@@ -9,41 +10,28 @@
     pass_switch: "Cu4tr0n3t*"
 
   tasks:
-    - name: Ejecutar show run leyendo los prompts del switch
-      ansible.builtin.shell: |
-        /usr/bin/expect -c '
-        # Aumentamos el buffer a 500,000 bytes para soportar todo el show run
-        match_max 500000
-        # Bajamos el timeout general a 60 segundos (para no esperar eternamente si falla)
-        set timeout 60
-        
-        spawn ssh -o KexAlgorithms=+diffie-hellman-group14-sha1 -o HostKeyAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no {{ usuario_switch }}@{{ ip_switch }}
-        
-        expect {
-            "*assword:*" { send "{{ pass_switch }}\r" }
-            "*yes/no*" { send "yes\r"; exp_continue }
-            timeout { puts "Error: Timeout esperando password"; exit 1 }
-        }
-        
-        expect {
-            "*#" { send "terminal length 0\r" }
-            timeout { puts "Error: Timeout esperando prompt inicial"; exit 1 }
-        }
-        
-        expect {
-            "*#" { send "show running-config\r" }
-            timeout { puts "Error: Timeout esperando prompt post term length"; exit 1 }
-        }
-        
-        expect {
-            "*#" { send "exit\r" }
-            timeout { puts "Error: Timeout esperando prompt final del show run"; exit 1 }
-        }
-        
-        expect eof
-        '
-      register: resultado_show_run
+    - name: 1. Crear archivo temporal con los comandos exactos
+      ansible.builtin.copy:
+        dest: "/tmp/comandos_cisco.txt"
+        content: |
+          terminal length 0
+          show running-config
+          exit
 
-    - name: Mostrar el resultado del show run en la consola
+    - name: 2. Ejecutar comandos inyectando el archivo (Sin terminales interactivas)
+      ansible.builtin.shell: >
+        sshpass -p '{{ pass_switch }}' ssh -T 
+        -o KexAlgorithms=+diffie-hellman-group14-sha1 
+        -o HostKeyAlgorithms=+ssh-rsa 
+        -o StrictHostKeyChecking=no 
+        {{ usuario_switch }}@{{ ip_switch }} < /tmp/comandos_cisco.txt
+      register: resultado_show_run
+      
+    - name: 3. Borrar el archivo temporal por seguridad
+      ansible.builtin.file:
+        path: "/tmp/comandos_cisco.txt"
+        state: absent
+
+    - name: 4. Mostrar el resultado del show run en la consola
       ansible.builtin.debug:
         var: resultado_show_run.stdout_lines
