@@ -1,6 +1,6 @@
 ---
 - name: Obtener running-config de Cisco C3650
-  hosts: all
+  hosts: 192.168.1.20
   gather_facts: false
 
   tasks:
