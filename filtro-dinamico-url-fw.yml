@@ -1,0 +1,70 @@
+---
+- name: Gestionar URL individual en Web Filter de forma inteligente
+  hosts: all
+  gather_facts: false
+  vars:
+    ansible_connection: httpapi
+    ansible_network_os: fortinet.fortios.fortios
+    ansible_httpapi_use_ssl: yes
+    ansible_httpapi_validate_certs: false
+    ansible_httpapi_port: 443
+    
+    access_token: "t9xwysG6xpQbHHxHrQkNdG6gbfGnNw"
+    ansible_httpapi_session_key: {"access_token": "{{ access_token }}"}
+    vdom: "root"
+    urlfilter_id: 1 
+    
+    # Variables que AWX pedirá en el Survey
+    url_texto: ""
+    accion_url: "" # "poner" o "quitar"
+    tipo_url: ""   # "wildcard", "simple", o "regex"
+
+  tasks:
+    - name: 1. Leer la tabla de URLs actual desde el FortiGate
+      ansible.builtin.uri:
+        url: "https://{{ inventory_hostname }}/api/v2/cmdb/webfilter/urlfilter/{{ urlfilter_id }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ access_token }}"
+        validate_certs: false
+      register: api_actual
+      delegate_to: localhost
+
+    - name: 2. Calcular la nueva lista (Agregar o Borrar sin afectar las demas)
+      ansible.builtin.set_fact:
+        nuevas_entradas: >-
+          {%- set entradas = api_actual.json.results[0].get('entries', []) -%}
+          {%- set lista = [] -%}
+          {%- set existe = namespace(estado=false) -%}
+          
+          {%- if accion_url == 'quitar' -%}
+            {%- for e in entradas -%}
+              {%- if e.url != url_texto -%}
+                {%- set _ = lista.append(e) -%}
+              {%- endif -%}
+            {%- endfor -%}
+            
+          {%- elif accion_url == 'poner' -%}
+            {%- for e in entradas -%}
+              {%- set _ = lista.append(e) -%}
+              {%- if e.url == url_texto -%}
+                {%- set existe.estado = true -%}
+              {%- endif -%}
+            {%- endfor -%}
+            
+            {# Si es nueva, calculamos el siguiente ID disponible #}
+            {%- if not existe.estado -%}
+              {%- set max_id = (entradas | map(attribute='id') | max) | default(0) | int -%}
+              {%- set _ = lista.append({'id': max_id + 1, 'url': url_texto, 'type': tipo_url, 'action': 'block', 'status': 'enable'}) -%}
+            {%- endif -%}
+          {%- endif -%}
+          {{ lista | to_json }}
+
+    - name: 3. Aplicar los cambios en el FortiGate
+      fortinet.fortios.fortios_webfilter_urlfilter:
+        vdom: "{{ vdom }}"
+        state: "present"
+        webfilter_urlfilter:
+          id: "{{ urlfilter_id }}"
+          name: "Lista_Bloqueos_AWX"
+          entries: "{{ nuevas_entradas | from_json }}"
