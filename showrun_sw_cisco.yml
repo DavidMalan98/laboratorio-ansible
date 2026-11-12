@@ -1,36 +1,28 @@
 ---
-- name: Obtener running-config de Cisco C3650 (Modo Comando Remoto)
-  hosts: 10.1.4.124
+- name: Obtener running-config de Cisco C3650 (Modo Nativo)
+  hosts: localhost
   gather_facts: false
 
   vars:
-    ip_switch: "192.168.1.20"
-    usuario_switch: "admin"
-    pass_switch: "Cu4tr0n3t*"
+    # 1. Le decimos a Ansible que esto es un equipo de red, no un servidor Linux
+    ansible_connection: network_cli
+    ansible_network_os: cisco.ios.ios
+    
+    # 2. Datos directos del switch
+    ansible_host: "192.168.1.20"
+    ansible_user: "admin"
+    ansible_password: "Cu4tr0n3t*"
+    
+    # 3. Tus parámetros SSH exactos para que no falle la negociación de llaves
+    ansible_ssh_common_args: '-o KexAlgorithms=+diffie-hellman-group14-sha1 -o HostKeyAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no'
 
   tasks:
-    - name: 1. Crear archivo temporal con los comandos exactos
-      ansible.builtin.copy:
-        dest: "/tmp/comandos_cisco.txt"
-        content: |
-          terminal length 0
-          show running-config
-          exit
-
-    - name: 2. Ejecutar comandos inyectando el archivo (Sin terminales interactivas)
-      ansible.builtin.shell: >
-        sshpass -p '{{ pass_switch }}' ssh -T 
-        -o KexAlgorithms=+diffie-hellman-group14-sha1 
-        -o HostKeyAlgorithms=+ssh-rsa 
-        -o StrictHostKeyChecking=no 
-        {{ usuario_switch }}@{{ ip_switch }} < /tmp/comandos_cisco.txt
+    - name: Ejecutar show run (Ansible maneja la paginación automáticamente)
+      cisco.ios.ios_command:
+        commands: show running-config
       register: resultado_show_run
-      
-    - name: 3. Borrar el archivo temporal por seguridad
-      ansible.builtin.file:
-        path: "/tmp/comandos_cisco.txt"
-        state: absent
 
-    - name: 4. Mostrar el resultado del show run en la consola
+    - name: Mostrar el resultado en pantalla
       ansible.builtin.debug:
-        var: resultado_show_run.stdout_lines
+        # Usamos [0] porque Ansible devuelve una lista de resultados por cada comando enviado
+        var: resultado_show_run.stdout_lines[0]
