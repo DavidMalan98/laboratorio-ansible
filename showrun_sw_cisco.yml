@@ -1,28 +1,15 @@
 ---
 - name: Obtener running-config de Cisco C3650
-  hosts: switch
+  hosts: all
   gather_facts: false
-  connection: ansible.netcommon.network_cli
-
-  vars:
-    ansible_network_os: cisco.ios.ios
-    ansible_user: admin
-    ansible_password: "{{ pass_switch }}"   # mejor con ansible-vault
-    ansible_command_timeout: 60
 
   tasks:
-    - name: show running-config
+    - name: Ejecutar show running-config
       cisco.ios.ios_command:
         commands:
           - show running-config
       register: resultado_show_run
 
-    - name: Mostrar
+    - name: Mostrar la configuracion
       ansible.builtin.debug:
-        var: resultado_show_run.stdout_lines[0]
-
-    - name: Guardar a archivo
-      ansible.builtin.copy:
-        content: "{{ resultado_show_run.stdout[0] }}"
-        dest: "./backup_{{ inventory_hostname }}.cfg"
-      delegate_to: localhost
+        msg: "{{ resultado_show_run.stdout_lines[0] }}"
