@@ -1,5 +1,4 @@
-
-    ---
+---
 - name: Obtener running-config de Cisco C3650 (Modo Comando Remoto)
   hosts: 10.1.4.124
   gather_facts: false
