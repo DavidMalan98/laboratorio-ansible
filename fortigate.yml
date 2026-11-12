@@ -1,0 +1,27 @@
+---
+- name: Controlar perfil Web Filter (Bloqueo Youtube) desde AWX
+  hosts: all
+  gather_facts: false
+  vars:
+    ansible_connection: httpapi
+    ansible_network_os: fortinet.fortios.fortios
+    ansible_httpapi_use_ssl: yes
+    ansible_httpapi_validate_certs: false
+    ansible_httpapi_port: 443
+    
+    fortios_access_token: "t9xwysG6xpQbHHxHrQkNdG6gbfGnNw"
+    vdom: "root"
+    
+    # Valor por defecto por si alguien lo ejecuta sin usar el Survey
+    accion_bloqueo: "prender"
+
+  tasks:
+    - name: Actualizar estado del bloqueo de Youtube en politica ID 1
+      fortinet.fortios.fortios_firewall_policy:
+        vdom: "{{ vdom }}"
+        access_token: "{{ fortios_access_token }}"
+        state: "present"
+        firewall_policy:
+          policyid: 1
+          utm_status: "{{ 'enable' if accion_bloqueo == 'prender' else 'disable' }}"
+          webfilter_profile: "{{ 'Bloqueo Youtube' if accion_bloqueo == 'prender' else '' }}"
