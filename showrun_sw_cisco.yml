@@ -1,5 +1,5 @@
 ---
-- name: Obtener running-config de Cisco (Modo OpenSSH con Throttling)
+- name: Obtener config de Cisco (Método Definitivo sin Cuelgues)
   hosts: 10.1.4.124
   gather_facts: false
 
@@ -9,18 +9,59 @@
     pass_switch: "Cu4tr0n3t*"
 
   tasks:
-    - name: Ejecutar show run y forzar desconexión mediante timeout
-      ansible.builtin.shell: |
-        timeout 60 sshpass -p '{{ pass_switch }}' ssh -T -o KexAlgorithms=+diffie-hellman-group14-sha1 -o HostKeyAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no {{ usuario_switch }}@{{ ip_switch }} << 'EOF'
-        terminal length 0
-        show running-config
-        exit
-        EOF
-      register: resultado_show_run
-      # El código 124 significa que el timeout cortó la sesión exitosamente
-      failed_when: resultado_show_run.rc not in [0, 124]
-      changed_when: false
+    - name: 1. Crear script expect a prueba de ecos y cuelgues
+      ansible.builtin.copy:
+        dest: "/tmp/extraer_cisco.exp"
+        mode: '0755'
+        content: |
+          #!/usr/bin/expect -f
+          # Aumentamos memoria para atrapar configuraciones gigantes
+          match_max 5000000
+          set timeout 120
+          
+          # Iniciamos conexión SSH nativa
+          spawn ssh -o KexAlgorithms=+diffie-hellman-group14-sha1 -o HostKeyAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no {{ usuario_switch }}@{{ ip_switch }}
+          
+          # Autenticación
+          expect {
+              "*assword:*" { send "{{ pass_switch }}\r" }
+              "*yes/no*" { send "yes\r"; exp_continue }
+              timeout { puts "ERROR: El switch no pidio contrasena"; exit 1 }
+          }
+          
+          # Esperar prompt inicial (ej. DEMO-SW1#)
+          expect -re {.*#}
+          
+          # Configurar paginación
+          send "terminal length 0\r"
+          expect "terminal length 0"
+          expect -re {.*#}
+          
+          # Ejecutar show run
+          send "show running-config\r"
+          
+          # TRUCO 1: Obligamos al script a tragarse el eco del comando para no confundirse
+          expect "show running-config"
+          
+          # Esperar al verdadero prompt final que sale después de las 1000 líneas de config
+          expect {
+              -re {.*#} { puts "" }
+              timeout { puts "ERROR: Tiempo agotado leyendo la configuracion"; exit 1 }
+          }
+          
+          # TRUCO 2: En lugar de enviar "exit" y esperar a que Cisco cierre (lo que causa el cuelgue),
+          # matamos el proceso SSH desde Linux instantáneamente.
+          exit 0
 
-    - name: Mostrar el resultado en pantalla
+    - name: 2. Ejecutar script y capturar salida
+      ansible.builtin.shell: /tmp/extraer_cisco.exp
+      register: resultado_show_run
+      
+    - name: 3. Borrar script temporal por limpieza
+      ansible.builtin.file:
+        path: "/tmp/extraer_cisco.exp"
+        state: absent
+
+    - name: 4. Mostrar la configuracion en consola
       ansible.builtin.debug:
         var: resultado_show_run.stdout_lines
