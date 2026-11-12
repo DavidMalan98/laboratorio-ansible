@@ -12,22 +12,37 @@
     - name: Ejecutar show run leyendo los prompts del switch
       ansible.builtin.shell: |
         /usr/bin/expect -c '
-        set timeout 120
+        # Aumentamos el buffer a 500,000 bytes para soportar todo el show run
+        match_max 500000
+        # Bajamos el timeout general a 60 segundos (para no esperar eternamente si falla)
+        set timeout 60
+        
         spawn ssh -o KexAlgorithms=+diffie-hellman-group14-sha1 -o HostKeyAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no {{ usuario_switch }}@{{ ip_switch }}
         
         expect {
             "*assword:*" { send "{{ pass_switch }}\r" }
             "*yes/no*" { send "yes\r"; exp_continue }
+            timeout { puts "Error: Timeout esperando password"; exit 1 }
         }
         
-        expect "*#" { send "terminal length 0\r" }
-        expect "*#" { send "show running-config\r" }
-        expect "*#" { send "exit\r" }
+        expect {
+            "*#" { send "terminal length 0\r" }
+            timeout { puts "Error: Timeout esperando prompt inicial"; exit 1 }
+        }
+        
+        expect {
+            "*#" { send "show running-config\r" }
+            timeout { puts "Error: Timeout esperando prompt post term length"; exit 1 }
+        }
+        
+        expect {
+            "*#" { send "exit\r" }
+            timeout { puts "Error: Timeout esperando prompt final del show run"; exit 1 }
+        }
         
         expect eof
         '
       register: resultado_show_run
-      changed_when: false
 
     - name: Mostrar el resultado del show run en la consola
       ansible.builtin.debug:
