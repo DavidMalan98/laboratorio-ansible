@@ -9,48 +9,42 @@
     pass_switch: "Cu4tr0n3t*"
 
   tasks:
-    - name: 1. Crear script expect a prueba de ecos y cuelgues
+    - name: 1. Crear script expect optimizado para evitar saturacion de CPU
       ansible.builtin.copy:
         dest: "/tmp/extraer_cisco.exp"
         mode: '0755'
         content: |
           #!/usr/bin/expect -f
-          # Aumentamos memoria para atrapar configuraciones gigantes
+          # Mantenemos el búfer grande pero apagamos el motor de Regex
           match_max 5000000
           set timeout 120
           
-          # Iniciamos conexión SSH nativa
           spawn ssh -o KexAlgorithms=+diffie-hellman-group14-sha1 -o HostKeyAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no {{ usuario_switch }}@{{ ip_switch }}
           
-          # Autenticación
           expect {
               "*assword:*" { send "{{ pass_switch }}\r" }
               "*yes/no*" { send "yes\r"; exp_continue }
               timeout { puts "ERROR: El switch no pidio contrasena"; exit 1 }
           }
           
-          # Esperar prompt inicial (ej. DEMO-SW1#)
-          expect -re {.*#}
+          # GLOBBING SIMPLE: Solo buscamos el símbolo '#'
+          expect "*#"
           
-          # Configurar paginación
           send "terminal length 0\r"
           expect "terminal length 0"
-          expect -re {.*#}
+          expect "*#"
           
-          # Ejecutar show run
           send "show running-config\r"
           
-          # TRUCO 1: Obligamos al script a tragarse el eco del comando para no confundirse
+          # Consumir el eco del comando
           expect "show running-config"
           
-          # Esperar al verdadero prompt final que sale después de las 1000 líneas de config
+          # GLOBBING SIMPLE para el final de la configuración
           expect {
-              -re {.*#} { puts "" }
+              "*#" { puts "" }
               timeout { puts "ERROR: Tiempo agotado leyendo la configuracion"; exit 1 }
           }
           
-          # TRUCO 2: En lugar de enviar "exit" y esperar a que Cisco cierre (lo que causa el cuelgue),
-          # matamos el proceso SSH desde Linux instantáneamente.
           exit 0
 
     - name: 2. Ejecutar script y capturar salida
