@@ -1,5 +1,5 @@
 ---
-- name: Obtener config de Cisco (Método Definitivo sin Cuelgues)
+- name: Obtener config de Cisco (Tuberia PTY Directa)
   hosts: 10.1.4.124
   gather_facts: false
 
@@ -9,53 +9,19 @@
     pass_switch: "Cu4tr0n3t*"
 
   tasks:
-    - name: 1. Crear script expect optimizado para evitar saturacion de CPU
-      ansible.builtin.copy:
-        dest: "/tmp/extraer_cisco.exp"
-        mode: '0755'
-        content: |
-          #!/usr/bin/expect -f
-          # Mantenemos el búfer grande pero apagamos el motor de Regex
-          match_max 5000000
-          set timeout 120
-          
-          spawn ssh -o KexAlgorithms=+diffie-hellman-group14-sha1 -o HostKeyAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no {{ usuario_switch }}@{{ ip_switch }}
-          
-          expect {
-              "*assword:*" { send "{{ pass_switch }}\r" }
-              "*yes/no*" { send "yes\r"; exp_continue }
-              timeout { puts "ERROR: El switch no pidio contrasena"; exit 1 }
-          }
-          
-          # GLOBBING SIMPLE: Solo buscamos el símbolo '#'
-          expect "*#"
-          
-          send "terminal length 0\r"
-          expect "terminal length 0"
-          expect "*#"
-          
-          send "show running-config\r"
-          
-          # Consumir el eco del comando
-          expect "show running-config"
-          
-          # GLOBBING SIMPLE para el final de la configuración
-          expect {
-              "*#" { puts "" }
-              timeout { puts "ERROR: Tiempo agotado leyendo la configuracion"; exit 1 }
-          }
-          
-          exit 0
-
-    - name: 2. Ejecutar script y capturar salida
-      ansible.builtin.shell: /tmp/extraer_cisco.exp
+    - name: Inyectar comandos forzando un Pseudo-Terminal (-tt) y retencion de sesion
+      ansible.builtin.shell: |
+        (
+          echo "terminal length 0"
+          sleep 1
+          echo "show running-config"
+          # Mantenemos la conexion abierta 20 segundos para que el switch termine de imprimir
+          sleep 20 
+          echo "exit"
+          sleep 1
+        ) | sshpass -p '{{ pass_switch }}' ssh -tt -o KexAlgorithms=+diffie-hellman-group14-sha1 -o HostKeyAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no {{ usuario_switch }}@{{ ip_switch }}
       register: resultado_show_run
       
-    - name: 3. Borrar script temporal por limpieza
-      ansible.builtin.file:
-        path: "/tmp/extraer_cisco.exp"
-        state: absent
-
-    - name: 4. Mostrar la configuracion en consola
+    - name: Mostrar la configuracion obtenida
       ansible.builtin.debug:
         var: resultado_show_run.stdout_lines
