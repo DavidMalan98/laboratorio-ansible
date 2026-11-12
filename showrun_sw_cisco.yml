@@ -1,27 +1,28 @@
 ---
-- name: Obtener config de Cisco (Tuberia PTY Directa)
-  hosts: 10.1.4.124
+- name: Obtener running-config de Cisco C3650
+  hosts: switch
   gather_facts: false
+  connection: ansible.netcommon.network_cli
 
   vars:
-    ip_switch: "192.168.1.20"
-    usuario_switch: "admin"
-    pass_switch: "Cu4tr0n3t*"
+    ansible_network_os: cisco.ios.ios
+    ansible_user: admin
+    ansible_password: "{{ pass_switch }}"   # mejor con ansible-vault
+    ansible_command_timeout: 60
 
   tasks:
-    - name: Inyectar comandos forzando un Pseudo-Terminal (-tt) y retencion de sesion
-      ansible.builtin.shell: |
-        (
-          echo "terminal length 0"
-          sleep 1
-          echo "show running-config"
-          # Mantenemos la conexion abierta 20 segundos para que el switch termine de imprimir
-          sleep 20 
-          echo "exit"
-          sleep 1
-        ) | sshpass -p '{{ pass_switch }}' ssh -tt -o KexAlgorithms=+diffie-hellman-group14-sha1 -o HostKeyAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no {{ usuario_switch }}@{{ ip_switch }}
+    - name: show running-config
+      cisco.ios.ios_command:
+        commands:
+          - show running-config
       register: resultado_show_run
-      
-    - name: Mostrar la configuracion obtenida
+
+    - name: Mostrar
       ansible.builtin.debug:
-        var: resultado_show_run.stdout_lines
+        var: resultado_show_run.stdout_lines[0]
+
+    - name: Guardar a archivo
+      ansible.builtin.copy:
+        content: "{{ resultado_show_run.stdout[0] }}"
+        dest: "./backup_{{ inventory_hostname }}.cfg"
+      delegate_to: localhost
