@@ -1,34 +1,26 @@
 ---
-- name: Obtener running-config de Cisco C3650 (Modo Nativo con Paramiko)
-  hosts: localhost
+- name: Obtener running-config de Cisco (Modo OpenSSH con Throttling)
+  hosts: 10.1.4.124
   gather_facts: false
 
   vars:
-    ansible_connection: network_cli
-    ansible_network_os: cisco.ios.ios
-    
-    ansible_host: "192.168.1.20"
-    ansible_user: "admin"
-    ansible_password: "Cu4tr0n3t*"
+    ip_switch: "192.168.1.20"
+    usuario_switch: "admin"
+    pass_switch: "Cu4tr0n3t*"
 
   tasks:
-    - name: 0. Configurar algoritmos legacy en ~/.ssh/config para Paramiko
-      ansible.builtin.blockinfile:
-        path: ~/.ssh/config
-        create: yes
-        mode: '0600'
-        marker: "# {mark} ANSIBLE MANAGED BLOCK FOR CISCO {{ ansible_host }}"
-        block: |
-          Host {{ ansible_host }}
-            KexAlgorithms +diffie-hellman-group14-sha1
-            HostKeyAlgorithms +ssh-rsa
-            StrictHostKeyChecking no
-
-    - name: 1. Ejecutar show run (Ansible maneja la paginación automáticamente)
-      cisco.ios.ios_command:
-        commands: show running-config
+    - name: Inyectar comandos con pausas (sleep) para no desbordar el buffer del switch
+      ansible.builtin.shell: |
+        (
+          echo "terminal length 0"
+          sleep 1
+          echo "show running-config"
+          sleep 3
+          echo "exit"
+          sleep 1
+        ) | sshpass -p '{{ pass_switch }}' ssh -T -o KexAlgorithms=+diffie-hellman-group14-sha1 -o HostKeyAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no {{ usuario_switch }}@{{ ip_switch }}
       register: resultado_show_run
 
-    - name: 2. Mostrar el resultado en pantalla
+    - name: Mostrar el resultado en pantalla
       ansible.builtin.debug:
-        var: resultado_show_run.stdout_lines[0]
+        var: resultado_show_run.stdout_lines
