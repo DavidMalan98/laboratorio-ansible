@@ -1,28 +1,34 @@
 ---
-- name: Obtener running-config de Cisco C3650 (Modo Nativo)
+- name: Obtener running-config de Cisco C3650 (Modo Nativo con Paramiko)
   hosts: localhost
   gather_facts: false
 
   vars:
-    # 1. Le decimos a Ansible que esto es un equipo de red, no un servidor Linux
     ansible_connection: network_cli
     ansible_network_os: cisco.ios.ios
     
-    # 2. Datos directos del switch
     ansible_host: "192.168.1.20"
     ansible_user: "admin"
     ansible_password: "Cu4tr0n3t*"
-    
-    # 3. Tus parámetros SSH exactos para que no falle la negociación de llaves
-    ansible_ssh_common_args: '-o KexAlgorithms=+diffie-hellman-group14-sha1 -o HostKeyAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no'
 
   tasks:
-    - name: Ejecutar show run (Ansible maneja la paginación automáticamente)
+    - name: 0. Configurar algoritmos legacy en ~/.ssh/config para Paramiko
+      ansible.builtin.blockinfile:
+        path: ~/.ssh/config
+        create: yes
+        mode: '0600'
+        marker: "# {mark} ANSIBLE MANAGED BLOCK FOR CISCO {{ ansible_host }}"
+        block: |
+          Host {{ ansible_host }}
+            KexAlgorithms +diffie-hellman-group14-sha1
+            HostKeyAlgorithms +ssh-rsa
+            StrictHostKeyChecking no
+
+    - name: 1. Ejecutar show run (Ansible maneja la paginación automáticamente)
       cisco.ios.ios_command:
         commands: show running-config
       register: resultado_show_run
 
-    - name: Mostrar el resultado en pantalla
+    - name: 2. Mostrar el resultado en pantalla
       ansible.builtin.debug:
-        # Usamos [0] porque Ansible devuelve una lista de resultados por cada comando enviado
         var: resultado_show_run.stdout_lines[0]
