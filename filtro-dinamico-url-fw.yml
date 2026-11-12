@@ -14,7 +14,7 @@
     vdom: "root"
     urlfilter_id: 1 
     
-    # Variables que AWX pedirá en el Survey
+    # Variables que AWX pedira en el Survey
     url_texto: ""
     accion_url: "" # "poner" o "quitar"
     tipo_url: ""   # "wildcard", "simple", o "regex"
@@ -30,7 +30,7 @@
       register: api_actual
       delegate_to: localhost
 
-    - name: 2. Calcular la nueva lista (Agregar o Borrar sin afectar las demas)
+    - name: 2. Calcular nueva lista (Sanitizada para evitar errores del modulo)
       ansible.builtin.set_fact:
         nuevas_entradas: >-
           {%- set entradas = api_actual.json.results[0].get('entries', []) -%}
@@ -40,13 +40,13 @@
           {%- if accion_url == 'quitar' -%}
             {%- for e in entradas -%}
               {%- if e.url != url_texto -%}
-                {%- set _ = lista.append(e) -%}
+                {%- set _ = lista.append({'id': e.id, 'url': e.url, 'type': e.type, 'action': e.action, 'status': e.status}) -%}
               {%- endif -%}
             {%- endfor -%}
             
           {%- elif accion_url == 'poner' -%}
             {%- for e in entradas -%}
-              {%- set _ = lista.append(e) -%}
+              {%- set _ = lista.append({'id': e.id, 'url': e.url, 'type': e.type, 'action': e.action, 'status': e.status}) -%}
               {%- if e.url == url_texto -%}
                 {%- set existe.estado = true -%}
               {%- endif -%}
