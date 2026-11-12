@@ -6,13 +6,26 @@
   vars:
     ip_switch: "192.168.1.20"
     usuario_switch: "admin"
-    # Recuerda: En producción es mejor encriptar esta contraseña con ansible-vault
     pass_switch: "Cu4tr0n3t*"
 
   tasks:
-    - name: Ejecutar show run mediante SSH directo (usando pipe)
+    - name: Ejecutar show run leyendo los prompts del switch
       ansible.builtin.shell: |
-        printf "terminal length 0\nshow running-config\nexit\n" | sshpass -p '{{ pass_switch }}' ssh -T -o KexAlgorithms=+diffie-hellman-group14-sha1 -o HostKeyAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no {{ usuario_switch }}@{{ ip_switch }}
+        /usr/bin/expect -c '
+        set timeout 120
+        spawn ssh -o KexAlgorithms=+diffie-hellman-group14-sha1 -o HostKeyAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no {{ usuario_switch }}@{{ ip_switch }}
+        
+        expect {
+            "*assword:*" { send "{{ pass_switch }}\r" }
+            "*yes/no*" { send "yes\r"; exp_continue }
+        }
+        
+        expect "*#" { send "terminal length 0\r" }
+        expect "*#" { send "show running-config\r" }
+        expect "*#" { send "exit\r" }
+        
+        expect eof
+        '
       register: resultado_show_run
       changed_when: false
 
