@@ -9,17 +9,15 @@
     ansible_httpapi_validate_certs: false
     ansible_httpapi_port: 443
     
-    fortios_access_token: "t9xwysG6xpQbHHxHrQkNdG6gbfGnNw"
+    # Variable exacta que lee el plugin httpapi para el API Token
+    ansible_httpapi_session_key: {"access_token":"t9xwysG6xpQbHHxHrQkNdG6gbfGnNw"}
     vdom: "root"
-    
-    # Valor por defecto por si alguien lo ejecuta sin usar el Survey
     accion_bloqueo: "prender"
 
   tasks:
     - name: Actualizar estado del bloqueo de Youtube en politica ID 1
       fortinet.fortios.fortios_firewall_policy:
         vdom: "{{ vdom }}"
-        access_token: "{{ fortios_access_token }}"
         state: "present"
         firewall_policy:
           policyid: 1
