@@ -1,5 +1,5 @@
 ---
-- name: Obtener config de Cisco (Modo EXEC Seguro)
+- name: Obtener config de Cisco (Guardado Físico y Cierre Forzado)
   hosts: 10.1.4.124
   gather_facts: false
 
@@ -9,14 +9,39 @@
     pass_switch: "Cu4tr0n3t*"
 
   tasks:
-    - name: Extraer configuracion usando canal EXEC (Cierre automatico garantizado)
-      ansible.builtin.shell: |
-        COMANDOS="terminal length 0
-        show running-config"
-        
-        sshpass -p '{{ pass_switch }}' ssh -T -o KexAlgorithms=+diffie-hellman-group14-sha1 -o HostKeyAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no {{ usuario_switch }}@{{ ip_switch }} "$COMANDOS"
+    - name: 1. Preparar archivo de instrucciones
+      ansible.builtin.copy:
+        dest: "/tmp/instrucciones_cisco.txt"
+        content: |
+          terminal length 0
+          show running-config
+          exit
+
+    - name: 2. Conectar y redirigir salida directo al disco duro (> /tmp/salida_cisco.txt)
+      ansible.builtin.shell: >
+        timeout 45 sshpass -p '{{ pass_switch }}' ssh -T 
+        -o KexAlgorithms=+diffie-hellman-group14-sha1 
+        -o HostKeyAlgorithms=+ssh-rsa 
+        -o StrictHostKeyChecking=no 
+        {{ usuario_switch }}@{{ ip_switch }} < /tmp/instrucciones_cisco.txt > /tmp/salida_cisco.txt
+      register: ssh_run
+      # El código 124 de Linux significa que 'timeout' cortó la sesión con éxito. 
+      failed_when: ssh_run.rc not in [0, 124]
+      changed_when: false
+
+    - name: 3. Recuperar el texto guardado
+      ansible.builtin.command: cat /tmp/salida_cisco.txt
       register: resultado_show_run
-      
-    - name: Mostrar el resultado en consola
+      changed_when: false
+
+    - name: 4. Mostrar el resultado en consola
       ansible.builtin.debug:
         var: resultado_show_run.stdout_lines
+
+    - name: 5. Limpieza de archivos temporales
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "/tmp/instrucciones_cisco.txt"
+        - "/tmp/salida_cisco.txt"
